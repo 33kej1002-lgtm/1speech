@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>1분 스피치 주제 뽑기</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Tone.js for Sound Effects -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+    <!-- Google Fonts (Pretendard-like Inter & Noto Sans KR) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&family=Outfit:wght@500;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Noto Sans KR"', 'sans-serif'],
+                        outfit: ['Outfit', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+        /* Circular Timer Progress */
+        .timer-circle {
+            transition: stroke-dashoffset 0.1s linear, stroke 0.3s ease;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+        /* Custom scrollbar hide for mobile feel */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-between selection:bg-indigo-500 selection:text-white font-sans antialiased">
+
+    <!-- Header -->
+    <header class="w-full max-w-md mx-auto px-5 pt-6 pb-2 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/25">
+                <i class="fa-solid fa-microphone-lines text-white text-base"></i>
+            </div>
+            <div>
+                <h1 class="text-base font-bold leading-tight tracking-tight">1분 스피치</h1>
+                <p class="text-xs text-slate-400 font-medium">순발력 & 표현력 트레이닝</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <button id="soundToggleBtn" class="p-2 w-9 h-9 rounded-xl bg-slate-800 border border-slate-700/60 text-slate-300 hover:text-white flex items-center justify-center transition active:scale-95" aria-label="음향 설정">
+                <i class="fa-solid fa-volume-high text-xs" id="soundIcon"></i>
+            </button>
+            <button id="infoModalBtn" class="p-2 w-9 h-9 rounded-xl bg-slate-800 border border-slate-700/60 text-slate-300 hover:text-white flex items-center justify-center transition active:scale-95" aria-label="이용 가이드">
+                <i class="fa-regular fa-circle-question text-sm"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="w-full max-w-md mx-auto px-4 py-3 flex-1 flex flex-col justify-center space-y-4">
+        
+        <!-- Category Filter Pills -->
+        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 text-xs">
+            <button class="cat-pill active-cat px-3 py-1.5 rounded-full font-medium transition whitespace-nowrap bg-indigo-600 text-white shadow-sm shadow-indigo-600/30" data-cat="all">전체</button>
+            <button class="cat-pill px-3 py-1.5 rounded-full font-medium transition whitespace-nowrap bg-slate-800 text-slate-400 border border-slate-700/50 hover:text-slate-200" data-cat="일상">일상</button>
+            <button class="cat-pill px-3 py-1.5 rounded-full font-medium transition whitespace-nowrap bg-slate-800 text-slate-400 border border-slate-700/50 hover:text-slate-200" data-cat="관계">관계</button>
+            <button class="cat-pill px-3 py-1.5 rounded-full font-medium transition whitespace-nowrap bg-slate-800 text-slate-400 border border-slate-700/50 hover:text-slate-200" data-cat="행복">행복</button>
+            <button class="cat-pill px-3 py-1.5 rounded-full font-medium transition whitespace-nowrap bg-slate-800 text-slate-400 border border-slate-700/50 hover:text-slate-200" data-cat="도전">도전</button>
+            <button class="cat-pill px-3 py-1.5 rounded-full font-medium transition whitespace-nowrap bg-slate-800 text-slate-400 border border-slate-700/50 hover:text-slate-200" data-cat="여행">여행</button>
+        </div>
+
+        <!-- Topic Card -->
+        <div class="relative bg-slate-800/90 border border-slate-700/70 backdrop-blur-xl rounded-3xl p-5 shadow-xl transition-all duration-300">
+            <!-- Badge & Count -->
+            <div class="flex items-center justify-between mb-3">
+                <span id="topicCategory" class="text-[11px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                    일상
+                </span>
+                <span id="speechCount" class="text-xs text-slate-400 flex items-center gap-1 font-mono">
+                    <i class="fa-solid fa-fire text-amber-500"></i> <span id="completedCountText">0</span>회 완료
+                </span>
+            </div>
+
+            <!-- Topic Question -->
+            <div class="min-h-[85px] flex items-center justify-center text-center px-1">
+                <h2 id="topicText" class="text-xl sm:text-2xl font-bold text-white tracking-tight leading-snug break-keep transition-opacity duration-200">
+                    오늘 하루 중 가장 나를 웃게 만들었던 순간은?
+                </h2>
+            </div>
+
+            <!-- 3 Keywords Tag -->
+            <div class="mt-4 pt-3 border-t border-slate-700/50">
+                <div class="flex items-center justify-center gap-1.5 mb-2">
+                    <i class="fa-solid fa-key text-[10px] text-indigo-400"></i>
+                    <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">스피치 핵심 단어 3개</span>
+                </div>
+                <div id="keywordsContainer" class="flex flex-wrap items-center justify-center gap-2">
+                    <span class="px-3 py-1 rounded-xl text-xs font-semibold bg-slate-700/60 text-indigo-200 border border-indigo-400/20">미소</span>
+                    <span class="px-3 py-1 rounded-xl text-xs font-semibold bg-slate-700/60 text-indigo-200 border border-indigo-400/20">타이밍</span>
+                    <span class="px-3 py-1 rounded-xl text-xs font-semibold bg-slate-700/60 text-indigo-200 border border-indigo-400/20">기분전환</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Timer Card -->
+        <div class="bg-slate-800/60 border border-slate-700/50 rounded-3xl p-4 flex flex-col items-center justify-center relative shadow-lg">
+            
+            <!-- Circular Progress & Time Display -->
+            <div class="relative w-44 h-44 flex items-center justify-center my-1">
+                <svg class="w-full h-full transform" viewBox="0 0 160 160">
+                    <!-- Background Circle -->
+                    <circle cx="80" cy="80" r="70" stroke="#334155" stroke-width="9" fill="transparent" />
+                    <!-- Foreground Animated Circle -->
+                    <circle id="timerProgress" class="timer-circle" cx="80" cy="80" r="70" stroke="#6366f1" stroke-width="9" stroke-linecap="round" fill="transparent" stroke-dasharray="439.82" stroke-dashoffset="0" />
+                </svg>
+
+                <div class="absolute flex flex-col items-center justify-center select-none">
+                    <span id="timerStatusLabel" class="text-[10px] uppercase font-bold tracking-widest text-slate-400 mb-0.5">남은 시간</span>
+                    <div class="font-outfit text-4xl font-extrabold tracking-tight text-white flex items-baseline">
+                        <span id="secondsDisplay">60</span>
+                        <span class="text-sm font-semibold text-slate-400 ml-1">초</span>
+                    </div>
+                    <span id="subStatusText" class="text-[11px] font-medium text-indigo-400 mt-0.5">준비 완료</span>
+                </div>
+            </div>
+
+            <!-- Prep Time Checkbox (15s thinking time) -->
+        <div class="flex items-center gap-2 mt-1 mb-2">
+            <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="prepToggle" class="sr-only peer">
+                <div class="w-8 h-4.5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-indigo-600"></div>
+                <span class="ml-2 text-xs font-medium text-slate-300">10초 생각 정리 시간 포함</span>
+            </label>
+        </div>
+
+        <!-- Recording Option & Live Status -->
+        <div class="w-full flex items-center justify-between px-3 py-2 bg-slate-900/60 rounded-xl border border-slate-700/60 mb-2">
+            <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="recordToggle" class="sr-only peer" checked>
+                <div class="w-8 h-4.5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-rose-600"></div>
+                <span class="ml-2 text-xs font-medium text-slate-300 flex items-center gap-1.5">
+                    <i class="fa-solid fa-microphone text-rose-400 text-[10px]"></i> 스피치 자동 녹음
+                </span>
+            </label>
+            <div id="recordingBadge" class="hidden items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[10px] font-bold animate-pulse">
+                <span class="w-2 h-2 rounded-full bg-rose-500"></span> REC
+            </div>
+        </div>
+
+        <!-- Timer Action Buttons -->
+        <div class="grid grid-cols-2 gap-2.5 w-full max-w-xs mt-1">
+            <button id="toggleTimerBtn" class="w-full py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm tracking-wide shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 transition active:scale-95">
+                <i class="fa-solid fa-play text-xs" id="timerBtnIcon"></i>
+                <span id="timerBtnText">스피치 시작</span>
+            </button>
+            <button id="resetTimerBtn" class="w-full py-3 px-4 rounded-2xl bg-slate-700 hover:bg-slate-650 text-slate-200 font-bold text-sm tracking-wide border border-slate-600/70 flex items-center justify-center gap-2 transition active:scale-95">
+                <i class="fa-solid fa-rotate-left text-xs"></i>
+                <span>초기화</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Audio Playback Card (Recorded Voice) -->
+    <div id="recordingPlayerCard" class="hidden bg-slate-800/90 border border-indigo-500/40 rounded-3xl p-4 shadow-xl space-y-2.5 animate-fadeIn">
+        <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                <i class="fa-solid fa-headphones text-indigo-400"></i> 내 스피치 다시 듣기
+            </span>
+            <span id="recordingDurationText" class="text-[11px] font-mono text-slate-400">00:00</span>
+        </div>
+        <audio id="audioPlayback" controls class="w-full h-10 accent-indigo-500 rounded-lg"></audio>
+        <div class="flex items-center justify-end gap-2 pt-1">
+            <a id="downloadAudioBtn" class="text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-xl font-medium flex items-center gap-1 transition active:scale-95" download="1minute_speech.webm">
+                <i class="fa-solid fa-download text-[11px]"></i> 녹음 파일 저장
+            </a>
+            <button id="discardAudioBtn" class="text-xs px-3 py-1.5 bg-slate-700/50 hover:bg-rose-900/40 text-slate-400 hover:text-rose-300 rounded-xl font-medium flex items-center gap-1 transition active:scale-95">
+                <i class="fa-solid fa-trash-can text-[11px]"></i> 삭제
+            </button>
+        </div>
+    </div>
+
+    <!-- Random Topic Generator Button -->
+    <button id="newTopicBtn" class="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-violet-600 via-indigo-600 to-cyan-500 hover:opacity-95 text-white font-extrabold text-base tracking-wide shadow-xl shadow-indigo-500/25 flex items-center justify-center gap-2.5 transition active:scale-98">
+            <i class="fa-solid fa-shuffle text-base animate-pulse"></i>
+            <span>새로운 주제 뽑기</span>
+        </button>
+
+    </main>
+
+    <!-- Simple Footer Tips Bar -->
+    <footer class="w-full max-w-md mx-auto px-5 py-3 text-center">
+        <p class="text-[11px] text-slate-400 bg-slate-800/40 border border-slate-700/40 rounded-xl py-2 px-3">
+            💡 <strong class="text-slate-300">Tip:</strong> <span id="quickTip">서론(결론 먼저)-본론(경험담/이유)-결론(배운점) 3단계로 구조화해보세요!</span>
+        </p>
+    </footer>
+
+    <!-- Mic Permission / Protocol Alert Modal -->
+    <div id="micAlertModal" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-800 border border-rose-500/50 rounded-3xl max-w-sm w-full p-5 shadow-2xl space-y-4 animate-fadeIn">
+            <div class="flex items-center gap-3 text-rose-400 border-b border-slate-700 pb-3">
+                <div class="w-9 h-9 rounded-xl bg-rose-500/20 flex items-center justify-center">
+                    <i class="fa-solid fa-microphone-slash text-base"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-white">마이크 녹음 불가 안내</h3>
+                    <p class="text-[11px] text-slate-400">보안 정책 또는 권한 설정 문제</p>
+                </div>
+            </div>
+            
+            <div id="micAlertBody" class="space-y-2.5 text-xs leading-relaxed text-slate-300">
+                <!-- 내용이 JS에서 동적으로 채워집니다 -->
+            </div>
+
+            <button id="closeMicAlertBtn" class="w-full py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 font-bold text-white text-xs transition">
+                확인
+            </button>
+        </div>
+    </div>
+
+    <!-- Help Modal Dialog -->
+    <div id="infoModal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-800 border border-slate-700 rounded-3xl max-w-sm w-full p-5 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-700">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-lightbulb text-amber-400"></i>
+                    1분 스피치 실전 가이드
+                </h3>
+                <button id="closeModalBtn" class="text-slate-400 hover:text-white p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-3 text-xs leading-relaxed text-slate-300">
+                <div class="bg-slate-700/40 p-3 rounded-xl border border-slate-600/30">
+                    <div class="font-bold text-indigo-300 mb-1">⏱️ PREP 기법 추천</div>
+                    <ul class="list-disc list-inside space-y-0.5 text-slate-300">
+                        <li><strong>P (주장):</strong> 핵심 메시지를 첫 문장에 말하기</li>
+                        <li><strong>R (이유):</strong> 왜 그렇게 생각하는지 이유 제시</li>
+                        <li><strong>E (사례):</strong> 내 경험이나 구체적 에피소드</li>
+                        <li><strong>P (강조):</strong> 마무리 교훈 및 다짐으로 매듭</li>
+                    </ul>
+                </div>
+                <div class="bg-slate-700/40 p-3 rounded-xl border border-slate-600/30">
+                    <div class="font-bold text-emerald-400 mb-1">🔑 3단어 활용법</div>
+                    <p>제시된 3가지 핵심 단어를 스피치 도중에 자연스럽게 녹여내는 연습을 하면 임기응변 능력이 극대화됩니다.</p>
+                </div>
+            </div>
+
+            <button id="modalConfirmBtn" class="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-bold text-white text-xs transition">
+                확인했습니다
+            </button>
+        </div>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // Database of Topics categorized with 3 relevant keywords
+        const topics = [
+            // 일상 (Daily)
+            { cat: "일상", title: "오늘 하루 중 나를 가장 미소 짓게 했던 순간은?", keywords: ["순간", "사소함", "기분전환"] },
+            { cat: "일상", title: "나만 알고 있는 스트레스 해소 꿀팁이 있다면?", keywords: ["휴식", "몰입", "루틴"] },
+            { cat: "일상", title: "스마트폰 없이 일주일을 살아야 한다면 가장 하고 싶은 일은?", keywords: ["자유", "아날로그", "집중"] },
+            { cat: "일상", title: "내 삶의 질을 수직 상승시켜 준 3만원 이하의 물건은?", keywords: ["가성비", "편리함", "애착"] },
+            { cat: "일상", title: "아침형 인간 vs 저녁형 인간, 나는 어느 쪽에 가깝고 그 이유는?", keywords: ["바이오리듬", "효율", "에너지"] },
+            { cat: "일상", title: "가장 좋아하는 계절의 냄새나 분위기는?", keywords: ["온도", "추억", "오감"] },
+            { cat: "일상", title: "평생 단 한 가지 음식만 먹어야 한다면 무엇을 고를까?", keywords: ["선택", "취향", "영양"] },
+            { cat: "일상", title: "최근에 새로 생긴 나만의 소소한 습관은?", keywords: ["반복", "변화", "적응"] },
+            { cat: "일상", title: "나만의 주말을 완벽하게 보내는 공식은?", keywords: ["충전", "여유", "재충전"] },
+            { cat: "일상", title: "비 오는 날 당신이 가장 즐기는 풍경이나 행동은?", keywords: ["빗소리", "차분함", "음악"] },
+
+            // 관계 (Relationship)
+            { cat: "관계", title: "좋은 대화 상대가 되기 위해 가장 중요하게 여기는 태도는?", keywords: ["경청", "공감", "눈맞춤"] },
+            { cat: "관계", title: "내 곁에 오래 두고 싶은 사람들의 공통점은?", keywords: ["진정성", "배려", "신뢰"] },
+            { cat: "관계", title: "인간관계에서 겪었던 가장 큰 깨달음이나 터닝포인트는?", keywords: ["거리두기", "이해", "성숙"] },
+            { cat: "관계", title: "최근에 누군가에게 진심으로 고마웠던 순간은?", keywords: ["감사", "표현", "따뜻함"] },
+            { cat: "관계", title: "어색한 분위기를 깰 때 주로 쓰는 나만의 비결은?", keywords: ["아이스브레이킹", "질문", "칭찬"] },
+            { cat: "관계", title: "‘진짜 친구’를 정의하는 나만의 기준 한 가지는?", keywords: ["솔직함", "응원", "안식처"] },
+            { cat: "관계", title: "나와 가치관이 정반대인 사람과 함께 일해야 한다면?", keywords: ["조율", "존중", "협업"] },
+            { cat: "관계", title: "부모님이나 가족에게 전하고 싶지만 쑥스러웠던 말은?", keywords: ["마음", "용기", "사랑"] },
+            { cat: "관계", title: "기억에 남는 인생의 멘토나 존경하는 사람은?", keywords: ["배움", "본보기", "영감"] },
+
+            // 행복 (Happiness)
+            { cat: "행복", title: "최근에 온전히 ‘행복하다’고 느꼈던 찰나의 순간은?", keywords: ["만족", "지금여기", "평온"] },
+            { cat: "행복", title: "나에게 100억 원의 돈과 시간 중 딱 하나만 주어진다면?", keywords: ["가치", "선택", "우선순위"] },
+            { cat: "행복", title: "지치고 우울할 때 나를 일으켜 세우는 마법의 주문은?", keywords: ["회복탄력성", "위로", "긍정"] },
+            { cat: "행복", title: "돈으로 살 수 없는 행복의 요소는 무엇일까?", keywords: ["시간", "건강", "인연"] },
+            { cat: "행복", title: "나를 진정으로 가치 있게 만드는 나의 매력 한 가지는?", keywords: ["자존감", "개성", "당당함"] },
+            { cat: "행복", title: "어릴 적 꿈꿨던 행복과 지금 생각하는 행복의 차이는?", keywords: ["성장", "단순함", "현실"] },
+            { cat: "행복", title: "내가 생각하는 성공적인 하루의 마침표는?", keywords: ["보람", "수고", "감사일기"] },
+            { cat: "행복", title: "내 삶에서 가장 감사하게 여기는 평범한 기적은?", keywords: ["일상", "숨결", "존재"] },
+
+            // 도전 (Challenge)
+            { cat: "도전", title: "실패했던 경험 중 가장 값진 교훈을 남겨준 것은?", keywords: ["실패", "밑거름", "발전"] },
+            { cat: "도전", title: "두렵지만 올해 안에 꼭 시도해보고 싶은 새로운 도전은?", keywords: ["용기", "첫걸음", "탈출구"] },
+            { cat: "도전", title: "‘안정적인 삶’과 ‘도전적인 삶’ 중 나의 심장을 뛰게 하는 것은?", keywords: ["모험", "방향성", "동기부여"] },
+            { cat: "도전", title: "포기하고 싶을 때 나를 끝까지 버티게 하는 원동력은?", keywords: ["끈기", "목적의식", "인내"] },
+            { cat: "도전", title: "내가 극복해 낸 나만의 콤플렉스나 약점은?", keywords: ["수용", "극복", "자신감"] },
+            { cat: "도전", title: "지금 당장 새로운 언어나 기술을 배운다면 무엇을 배울까?", keywords: ["호기심", "잠재력", "투자"] },
+            { cat: "도전", title: "‘그때 그 결정을 하길 정말 잘했다’고 생각하는 순간은?", keywords: ["결단", "직관", "후회없음"] },
+            { cat: "도전", title: "완벽주의와 빠른 실행 중 지금 나에게 더 필요한 것은?", keywords: ["속도", "완성", "시작"] },
+
+            // 여행 (Travel)
+            { cat: "여행", title: "내 인생 최고의 여행지와 그곳이 특별했던 이유는?", keywords: ["풍경", "이국적", "영원함"] },
+            { cat: "여행", title: "혼자 떠나는 여행 vs 친구와 함께하는 여행, 나의 선호는?", keywords: ["자유", "추억공유", "케미"] },
+            { cat: "여행", title: "여행지에서 겪었던 가장 예상 밖의 돌발 상황은?", keywords: ["유연함", "에피소드", "임기응변"] },
+            { cat: "여행", title: "딱 한 달 동안 낯선 도시에서 살 수 있다면 어디로 가고 싶을까?", keywords: ["살아보기", "새로움", "시야"] },
+            { cat: "여행", title: "여행 짐을 쌀 때 절대 빼놓지 않는 나만의 필수 아이템은?", keywords: ["준비", "안정감", "실용성"] },
+            { cat: "여행", title: "비행기 창가 자리 vs 복도 자리, 나의 취향과 이유는?", keywords: ["조망", "편안함", "취향"] },
+            { cat: "여행", title: "일상 속에서 여행 온 듯한 기분을 내는 방법이 있다면?", keywords: ["동네산책", "새로운길", "환기"] }
+        ];
+
+        const tips = [
+            "서론(결론 먼저)-본론(경험담/이유)-결론(배운점) 3단계로 구조화해보세요!",
+            "말이 막힐 때는 '왜냐하면~', '예를 들어~'로 자연스럽게 이어가세요.",
+            "키워드 3단어를 자연스럽게 연결하면 이야기가 훨씬 풍성해집니다.",
+            "빠르게 말하기보다 또박또박 쉼표(Pause)를 두며 말하는 것이 좋습니다.",
+            "나만의 구체적인 일화(에피소드)가 들어갈 때 가장 강력한 스피치가 됩니다."
+        ];
+
+        // State variables
+        let currentFilter = "all";
+        let filteredTopics = [...topics];
+        let currentTopic = topics[0];
+        let timerDuration = 60; // 60s
+        let prepDuration = 10;  // 10s prep
+        let remainingTime = 60;
+        let timerInterval = null;
+        let timerState = "idle"; // "idle" | "prep" | "speech" | "paused"
+        let isMuted = false;
+        let completedCount = 0;
+
+        // Elements
+        const topicTextEl = document.getElementById("topicText");
+        const topicCategoryEl = document.getElementById("topicCategory");
+        const keywordsContainerEl = document.getElementById("keywordsContainer");
+        const newTopicBtn = document.getElementById("newTopicBtn");
+        const timerProgressEl = document.getElementById("timerProgress");
+        const secondsDisplayEl = document.getElementById("secondsDisplay");
+        const toggleTimerBtn = document.getElementById("toggleTimerBtn");
+        const resetTimerBtn = document.getElementById("resetTimerBtn");
+        const timerBtnText = document.getElementById("timerBtnText");
+        const timerBtnIcon = document.getElementById("timerBtnIcon");
+        const timerStatusLabel = document.getElementById("timerStatusLabel");
+        const subStatusText = document.getElementById("subStatusText");
+        const prepToggle = document.getElementById("prepToggle");
+        const catPills = document.querySelectorAll(".cat-pill");
+        const soundToggleBtn = document.getElementById("soundToggleBtn");
+        const soundIcon = document.getElementById("soundIcon");
+        const completedCountText = document.getElementById("completedCountText");
+        const quickTipEl = document.getElementById("quickTip");
+        const infoModal = document.getElementById("infoModal");
+        const infoModalBtn = document.getElementById("infoModalBtn");
+        const closeModalBtn = document.getElementById("closeModalBtn");
+        const modalConfirmBtn = document.getElementById("modalConfirmBtn");
+
+        // Mic Alert Modal Elements
+        const micAlertModal = document.getElementById("micAlertModal");
+        const micAlertBody = document.getElementById("micAlertBody");
+        const closeMicAlertBtn = document.getElementById("closeMicAlertBtn");
+
+        // Recording Elements & State
+        const recordToggle = document.getElementById("recordToggle");
+        const recordingBadge = document.getElementById("recordingBadge");
+        const recordingPlayerCard = document.getElementById("recordingPlayerCard");
+        const audioPlayback = document.getElementById("audioPlayback");
+        const downloadAudioBtn = document.getElementById("downloadAudioBtn");
+        const discardAudioBtn = document.getElementById("discardAudioBtn");
+        const recordingDurationText = document.getElementById("recordingDurationText");
+
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let recordedBlobUrl = null;
+        let recordStartTime = 0;
+        let supportedMimeType = '';
+
+        function showMicErrorModal(reasonType) {
+            if (reasonType === "file_protocol") {
+                micAlertBody.innerHTML = `
+                    <p class="font-semibold text-rose-300">현재 파일(file://)로 직접 실행되었습니다.</p>
+                    <p>스마트폰 브라우저는 보안상 <strong>HTTPS 웹 주소</strong>에서만 마이크 권한을 허용합니다.</p>
+                    <div class="bg-slate-900/70 p-2.5 rounded-xl border border-slate-700 text-[11px] space-y-1">
+                        <div>✨ <strong>해결 방법:</strong></div>
+                        <div>1. Netlify([netlify.com/drop](https://app.netlify.com/drop)) 또는 GitHub Pages 등 무료 호스팅에 HTML을 업로드하세요.</div>
+                        <div>2. 발급된 <strong>https://</strong> 주소로 접속하면 마이크와 녹음 기능이 즉시 정상 작동합니다.</div>
+                    </div>
+                `;
+            } else {
+                micAlertBody.innerHTML = `
+                    <p class="font-semibold text-rose-300">마이크 권한을 불러올 수 없습니다.</p>
+                    <p>브라우저 설정에서 <strong>마이크 접근 권한이 차단</strong>되어 있는지 확인해 주세요.</p>
+                    <div class="bg-slate-900/70 p-2.5 rounded-xl border border-slate-700 text-[11px]">
+                        아이폰은 사파리 설정 > 마이크 허용, 안드로이드는 크롬 사이트 설정 > 마이크 허용이 필요합니다.
+                    </div>
+                `;
+            }
+            micAlertModal.classList.remove("hidden");
+        }
+
+        closeMicAlertBtn.addEventListener("click", () => {
+            micAlertModal.classList.add("hidden");
+        });
+
+        // MediaRecorder setup with iOS & Web compatibility
+        async function startRecording() {
+            if (!recordToggle.checked) return;
+
+            // Check protocol security context
+            if (window.location.protocol === 'file:') {
+                console.warn("getUserMedia is blocked in file:/// scheme by browser security policy.");
+                showMicErrorModal("file_protocol");
+                return;
+            }
+
+            try {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    showMicErrorModal("not_supported");
+                    return;
+                }
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioChunks = [];
+
+                // Detect supported mimeType (iOS Safari usually prefers audio/mp4)
+                supportedMimeType = '';
+                if (typeof MediaRecorder.isTypeSupported === 'function') {
+                    if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+                        supportedMimeType = 'audio/webm;codecs=opus';
+                    } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+                        supportedMimeType = 'audio/webm';
+                    } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+                        supportedMimeType = 'audio/mp4';
+                    }
+                }
+
+                const options = supportedMimeType ? { mimeType: supportedMimeType } : {};
+                mediaRecorder = new MediaRecorder(stream, options);
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data && event.data.size > 0) {
+                        audioChunks.push(event.data);
+                    }
+                };
+
+                mediaRecorder.onstop = () => {
+                    stream.getTracks().forEach(track => track.stop());
+                    if (audioChunks.length > 0) {
+                        if (recordedBlobUrl) {
+                            URL.revokeObjectURL(recordedBlobUrl);
+                        }
+                        const finalMime = supportedMimeType || (audioChunks[0] ? audioChunks[0].type : 'audio/webm');
+                        const ext = finalMime.includes('mp4') ? 'mp4' : 'webm';
+                        const audioBlob = new Blob(audioChunks, { type: finalMime });
+                        recordedBlobUrl = URL.createObjectURL(audioBlob);
+                        
+                        audioPlayback.src = recordedBlobUrl;
+                        audioPlayback.load();
+                        downloadAudioBtn.href = recordedBlobUrl;
+                        downloadAudioBtn.download = `스피치_${new Date().toISOString().slice(5, 16).replace(/[:T]/g, '_')}.${ext}`;
+
+                        const durationSeconds = Math.max(1, Math.round((Date.now() - recordStartTime) / 1000));
+                        const mins = Math.floor(durationSeconds / 60);
+                        const secs = durationSeconds % 60;
+                        recordingDurationText.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                        
+                        recordingPlayerCard.classList.remove("hidden");
+                    }
+                    recordingBadge.classList.add("hidden");
+                    recordingBadge.classList.remove("flex");
+                };
+
+                recordStartTime = Date.now();
+                mediaRecorder.start();
+                recordingBadge.classList.remove("hidden");
+                recordingBadge.classList.add("flex");
+            } catch (err) {
+                console.warn("Microphone access denied or error:", err);
+                showMicErrorModal("denied");
+                recordingBadge.classList.add("hidden");
+                recordingBadge.classList.remove("flex");
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+            recordingBadge.classList.add("hidden");
+            recordingBadge.classList.remove("flex");
+        }
+
+        function clearRecordedAudio() {
+            stopRecording();
+            if (recordedBlobUrl) {
+                URL.revokeObjectURL(recordedBlobUrl);
+                recordedBlobUrl = null;
+            }
+            audioPlayback.removeAttribute("src");
+            recordingPlayerCard.classList.add("hidden");
+        }
+
+        discardAudioBtn.addEventListener("click", () => {
+            playSound('click');
+            clearRecordedAudio();
+        });
+
+        // Circle circumference (2 * PI * 70 = 439.822)
+        const CIRCUMFERENCE = 2 * Math.PI * 70;
+        timerProgressEl.style.strokeDasharray = `${CIRCUMFERENCE} ${CIRCUMFERENCE}`;
+        timerProgressEl.style.strokeDashoffset = "0";
+
+        // Sound Synthesis using Tone.js
+        let synth = null;
+        function initAudio() {
+            if (!synth && typeof Tone !== 'undefined') {
+                try {
+                    synth = new Tone.PolySynth(Tone.Synth).toDestination();
+                    synth.volume.value = -8;
+                } catch(e) {
+                    console.log("Audio Init Note:", e);
+                }
+            }
+            if (Tone && Tone.context.state !== 'running') {
+                Tone.start();
+            }
+        }
+
+        function playSound(type) {
+            if (isMuted || !synth) return;
+            try {
+                const now = Tone.now();
+                if (type === 'click') {
+                    synth.triggerAttackRelease("C5", "32n", now);
+                } else if (type === 'start') {
+                    synth.triggerAttackRelease(["E5", "G5", "C6"], "16n", now);
+                } else if (type === 'tick') {
+                    synth.triggerAttackRelease("A5", "32n", now);
+                } else if (type === 'finish') {
+                    synth.triggerAttackRelease("C5", "8n", now);
+                    synth.triggerAttackRelease("G5", "8n", now + 0.15);
+                    synth.triggerAttackRelease("C6", "4n", now + 0.3);
+                } else if (type === 'prep') {
+                    synth.triggerAttackRelease("D5", "16n", now);
+                }
+            } catch(e) {
+                // Ignore audio ctx restriction
+            }
+        }
+
+        // Sound Mute Toggle
+        soundToggleBtn.addEventListener("click", () => {
+            initAudio();
+            isMuted = !isMuted;
+            if (isMuted) {
+                soundIcon.className = "fa-solid fa-volume-xmark text-slate-500 text-xs";
+            } else {
+                soundIcon.className = "fa-solid fa-volume-high text-indigo-400 text-xs";
+                playSound('click');
+            }
+        });
+
+        // Filter Categories
+        catPills.forEach(pill => {
+            pill.addEventListener("click", () => {
+                initAudio();
+                playSound('click');
+                catPills.forEach(p => {
+                    p.classList.remove("active-cat", "bg-indigo-600", "text-white", "shadow-sm", "shadow-indigo-600/30");
+                    p.classList.add("bg-slate-800", "text-slate-400");
+                });
+                pill.classList.add("active-cat", "bg-indigo-600", "text-white", "shadow-sm", "shadow-indigo-600/30");
+                pill.classList.remove("bg-slate-800", "text-slate-400");
+
+                currentFilter = pill.dataset.cat;
+                if (currentFilter === "all") {
+                    filteredTopics = [...topics];
+                } else {
+                    filteredTopics = topics.filter(t => t.cat === currentFilter);
+                }
+                getRandomTopic();
+            });
+        });
+
+        // Topic Generator
+        function getRandomTopic() {
+            if (filteredTopics.length === 0) return;
+            initAudio();
+            playSound('click');
+
+            // Rotate random tips
+            quickTipEl.textContent = tips[Math.floor(Math.random() * tips.length)];
+
+            // Animation effect
+            topicTextEl.style.opacity = '0';
+            keywordsContainerEl.style.opacity = '0';
+
+            setTimeout(() => {
+                // Select different from current if possible
+                let pool = filteredTopics.filter(t => t.title !== currentTopic.title);
+                if (pool.length === 0) pool = filteredTopics;
+                currentTopic = pool[Math.floor(Math.random() * pool.length)];
+
+                topicCategoryEl.textContent = currentTopic.cat;
+                topicTextEl.textContent = currentTopic.title;
+
+                // Render 3 keywords
+                keywordsContainerEl.innerHTML = currentTopic.keywords.map(kw => `
+                    <span class="px-3 py-1 rounded-xl text-xs font-semibold bg-indigo-950/60 text-indigo-300 border border-indigo-500/30 shadow-inner flex items-center gap-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>${kw}
+                    </span>
+                `).join('');
+
+                topicTextEl.style.opacity = '1';
+                keywordsContainerEl.style.opacity = '1';
+            }, 180);
+
+            // If timer was completed, auto-reset for next speech
+            if (timerState === "speech" && remainingTime <= 0) {
+                resetTimer();
+            }
+        }
+
+        // Timer Progress Visual Update
+        function setProgress(percent, color = "#6366f1") {
+            const offset = CIRCUMFERENCE - (percent * CIRCUMFERENCE);
+            timerProgressEl.style.strokeDashoffset = offset;
+            timerProgressEl.style.stroke = color;
+        }
+
+        // Display update
+        function updateTimerUI() {
+            secondsDisplayEl.textContent = remainingTime;
+            
+            if (timerState === "prep") {
+                const pct = remainingTime / prepDuration;
+                setProgress(pct, "#eab308"); // Amber color for prep
+                timerStatusLabel.textContent = "생각 정리 중";
+                subStatusText.textContent = "아이디어 메모 & 구성";
+                subStatusText.className = "text-[11px] font-bold text-amber-400 mt-0.5 animate-pulse";
+            } else if (timerState === "speech") {
+                const pct = remainingTime / timerDuration;
+                let strokeColor = "#6366f1"; // Indigo
+                if (remainingTime <= 10) strokeColor = "#ef4444"; // Red for last 10s
+                else if (remainingTime <= 20) strokeColor = "#f97316"; // Orange
+                
+                setProgress(pct, strokeColor);
+                timerStatusLabel.textContent = "스피치 진행 중";
+                subStatusText.textContent = remainingTime <= 10 ? "마무리 문장 준비!" : "당당하고 또박또박!";
+                subStatusText.className = remainingTime <= 10 ? "text-[11px] font-bold text-red-400 mt-0.5 animate-pulse" : "text-[11px] font-medium text-indigo-300 mt-0.5";
+            } else if (timerState === "paused") {
+                timerStatusLabel.textContent = "일시 정지";
+                subStatusText.textContent = "잠시 숨고르기";
+                subStatusText.className = "text-[11px] font-medium text-slate-400 mt-0.5";
+            } else {
+                setProgress(1, "#6366f1");
+                timerStatusLabel.textContent = "남은 시간";
+                subStatusText.textContent = "준비 완료";
+                subStatusText.className = "text-[11px] font-medium text-indigo-400 mt-0.5";
+            }
+        }
+
+        // Timer Engine
+        function startTimer() {
+            initAudio();
+            if (timerState === "paused") {
+                // Resume
+                timerState = "speech";
+                timerBtnText.textContent = "일시 정지";
+                timerBtnIcon.className = "fa-solid fa-pause text-xs";
+                if (mediaRecorder && mediaRecorder.state === 'paused') {
+                    mediaRecorder.resume();
+                }
+                runSpeechInterval();
+                return;
+            }
+
+            // Fresh start
+            clearRecordedAudio();
+            const withPrep = prepToggle.checked;
+            if (withPrep) {
+                timerState = "prep";
+                remainingTime = prepDuration;
+                playSound('prep');
+                timerBtnText.textContent = "일시 정지";
+                timerBtnIcon.className = "fa-solid fa-pause text-xs";
+                updateTimerUI();
+
+                timerInterval = setInterval(() => {
+                    remainingTime--;
+                    if (remainingTime <= 3 && remainingTime > 0) {
+                        playSound('tick');
+                    }
+                    if (remainingTime <= 0) {
+                        clearInterval(timerInterval);
+                        // Transition to speech & trigger recording
+                        timerState = "speech";
+                        remainingTime = timerDuration;
+                        playSound('start');
+                        updateTimerUI();
+                        startRecording();
+                        runSpeechInterval();
+                    } else {
+                        updateTimerUI();
+                    }
+                }, 1000);
+            } else {
+                timerState = "speech";
+                remainingTime = timerDuration;
+                playSound('start');
+                timerBtnText.textContent = "일시 정지";
+                timerBtnIcon.className = "fa-solid fa-pause text-xs";
+                updateTimerUI();
+                startRecording();
+                runSpeechInterval();
+            }
+        }
+
+        function runSpeechInterval() {
+            timerInterval = setInterval(() => {
+                remainingTime--;
+                if (remainingTime <= 5 && remainingTime > 0) {
+                    playSound('tick');
+                }
+                
+                if (remainingTime <= 0) {
+                    clearInterval(timerInterval);
+                    timerState = "idle";
+                    remainingTime = 0;
+                    stopRecording();
+                    updateTimerUI();
+                    playSound('finish');
+                    
+                    // Increment speech completion
+                    completedCount++;
+                    completedCountText.textContent = completedCount;
+
+                    timerBtnText.textContent = "스피치 시작";
+                    timerBtnIcon.className = "fa-solid fa-play text-xs";
+                    subStatusText.textContent = "🎉 1분 스피치 완주 성공!";
+                    subStatusText.className = "text-[11px] font-bold text-emerald-400 mt-0.5";
+                } else {
+                    updateTimerUI();
+                }
+            }, 1000);
+        }
+
+        function pauseTimer() {
+            clearInterval(timerInterval);
+            timerState = "paused";
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.pause();
+            }
+            timerBtnText.textContent = "이어서 하기";
+            timerBtnIcon.className = "fa-solid fa-play text-xs";
+            updateTimerUI();
+        }
+
+        function resetTimer() {
+            initAudio();
+            clearInterval(timerInterval);
+            stopRecording();
+            timerState = "idle";
+            remainingTime = 60;
+            timerBtnText.textContent = "스피치 시작";
+            timerBtnIcon.className = "fa-solid fa-play text-xs";
+            updateTimerUI();
+        }
+
+        // Button Events
+        toggleTimerBtn.addEventListener("click", () => {
+            if (timerState === "speech" || timerState === "prep") {
+                pauseTimer();
+            } else {
+                startTimer();
+            }
+        });
+
+        resetTimerBtn.addEventListener("click", () => {
+            playSound('click');
+            resetTimer();
+        });
+
+        newTopicBtn.addEventListener("click", getRandomTopic);
+
+        // Prep toggle event
+        prepToggle.addEventListener("change", () => {
+            initAudio();
+            playSound('click');
+            if (timerState === "idle") {
+                // Keep UI updated
+            }
+        });
+
+        // Modal triggers
+        infoModalBtn.addEventListener("click", () => {
+            initAudio();
+            playSound('click');
+            infoModal.classList.remove("hidden");
+        });
+        const hideModal = () => infoModal.classList.add("hidden");
+        closeModalBtn.addEventListener("click", hideModal);
+        modalConfirmBtn.addEventListener("click", hideModal);
+        infoModal.addEventListener("click", (e) => {
+            if (e.target === infoModal) hideModal();
+        });
+
+        // Initial setup on window load
+        window.onload = function() {
+            getRandomTopic();
+            updateTimerUI();
+        };
+    </script>
+</body>
+</html>
